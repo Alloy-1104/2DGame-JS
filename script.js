@@ -90,22 +90,27 @@ class Player {
     pos = new Vector2.zero,
     size = new Vector2(10,10),
     motion = new Vector2.zero,
-    attribute = new EntityAttribute()) {
+    attribute = new EntityAttribute(),
+    on_ground = false
+  ) {
     this.pos = pos;
     this.size = size;
     this.motion = motion;
     this.attribute = attribute;
+    this.on_ground = on_ground;
   }
 }
 class EntityAttribute {
   constructor(
     move_speed = 1.0,
     gravity_multiplier = 1.0,
-    resistance = 0.9
+    resistance = 0.9,
+    jump_power,
   ) {
     this.move_speed = move_speed;
     this.gravity_multiplier = gravity_multiplier;
     this.resistance = resistance;
+    this.jump_power = jump_power;
   }
 }
 // key input
@@ -133,17 +138,19 @@ document.addEventListener('keyup', event => {
   }
 });
 
+// environment constant
+const GRAVITY = -1.5;
 
 // setting canvas
 const canvas = document.getElementById("game-canvas");
 const ctx = canvas.getContext("2d");
 
 // setting player
-var player_attribute = new EntityAttribute(5,1,0.6)
-var p = new Player(new Vector2(100,100), new Vector2(50,50), Vector2.zero, player_attribute);
+var player_attribute = new EntityAttribute(3,1,0.8,30);
+var p = new Player(new Vector2(100,100), new Vector2(50,50), Vector2.zero, player_attribute, false);
 
 // setting terrain
-var walls = [[300,400,100,100]]
+var walls = [[300,400,100,100],[0,0,800,50],[200,200,50,50]]
 
 function tick() {
   logic();
@@ -154,23 +161,32 @@ function logic() {
   // move player
   if (input_right) {p.motion.x += p.attribute.move_speed;}
   if (input_left) {p.motion.x -= p.attribute.move_speed;}
-  if (input_up) {p.motion.y += p.attribute.move_speed;}
+  if (input_up && on_ground) {p.motion.y += p.attribute.jump_power;}
   if (input_down) {p.motion.y -= p.attribute.move_speed;}
   
-  p.motion.times(p.attribute.resistance);
+  p.motion.x *= p.attribute.resistance;
+  p.motion.y += GRAVITY;
   if (Math.abs(p.motion.x) < 1) {p.motion.x = 0}
-  if (Math.abs(p.motion.y) < 1) {p.motion.y = 0}
+  //if (Math.abs(p.motion.y) < 1) {p.motion.y = 0}
 
-  move();
+  move(4);
 }
 
-function move() {
-  if (is_colliding(p.pos.x + p.motion.x, p.pos.y)) {
-    //
-  } else {p.pos.x += p.motion.x;}
-  if (is_colliding(p.pos.x, p.pos.y + p.motion.y)) {
-    //
-  } else {p.pos.y += p.motion.y;}
+function move(accuracy) {
+  if (!is_colliding(p.pos.x + p.motion.x, p.pos.y)) {
+    p.pos.x += p.motion.x;
+  } else {
+    p.motion.x = 0;
+  }
+  if (!is_colliding(p.pos.x, p.pos.y + p.motion.y)) {
+    p.pos.y += p.motion.y;
+    on_ground = false;
+  } else {
+    if (p.motion.y < 0) {
+      on_ground = true;
+    }
+    p.motion.y = 0;
+  }
 }
 
 function intersect_rect(al,au,ar,ad,bl,bu,br,bd) {
