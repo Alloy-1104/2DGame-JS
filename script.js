@@ -88,17 +88,20 @@ class Vector2 {
 class Player {
   constructor(args) {
     this.pos = args["pos"];
-    this.size = args["size"];
     this.motion = args["motion"];
     this.attribute = args["attribute"];
     this.on_ground = args["on_ground"];
+    this.touching_left_wall = args["touching_left_wall"];
+    this.touching_right_wall = args["touching_left_wall"];
   }
 }
 class EntityAttribute {
   constructor(attribute) {
+    this.size = attribute["size"];
     this.move_speed = attribute["move_speed"];
     this.gravity_multiplier = attribute["gravity_multiplier"];
     this.resistance = attribute["resistance"];
+    this.wall_resistance = attribute["wall_resistance"];
     this.jump_power = attribute["jump_power"];
   }
 }
@@ -110,20 +113,20 @@ var input_down = false;
 var input_space = false;
 document.addEventListener('keydown', event => {
   switch (event.key) {
-    case "ArrowLeft":input_left = true;break;
-    case "ArrowRight":input_right = true;break;
-    case "ArrowUp":input_up = true;break;
-    case "ArrowDown":input_down = true;break;
-    case "Space":input_space = true;break;
+    case "ArrowLeft": input_left = true; break;
+    case "ArrowRight": input_right = true; break;
+    case "ArrowUp": input_up = true;break;
+    case "ArrowDown": input_down = true; break;
+    case "Space": input_space = true; break;
   }
 });
 document.addEventListener('keyup', event => {
   switch (event.key) {
-    case "ArrowLeft":input_left = false;break;
-    case "ArrowRight":input_right = false;break;
-    case "ArrowUp":input_up = false;break;
-    case "ArrowDown":input_down = false;break;
-    case "Space":input_space = false;break;
+    case "ArrowLeft": input_left = false; break;
+    case "ArrowRight": input_right = false; break;
+    case "ArrowUp": input_up = false;start_input_up = false; break;
+    case "ArrowDown": input_down = false; break;
+    case "Space": input_space = false; break;
   }
 });
 
@@ -136,21 +139,34 @@ const ctx = canvas.getContext("2d");
 
 // setting player
 var player_attribute = new EntityAttribute({
-  move_speed:1,
-  gravity_multiplier:1,
-  jump_power:20,
-  resistance:0.9
-  });
+  size: new Vector2(50, 50),
+  move_speed: 1,
+  gravity_multiplier: 1,
+  jump_power: 20,
+  resistance: 0.9,
+  wall_resistance: 0.6,
+});
 var p = new Player({
-  pos: new Vector2(100,100),
-  size: new Vector2(50,50),
+  pos: new Vector2(100, 100),
   motion: Vector2.zero,
   attribute: player_attribute,
-  on_ground: false
+  on_ground: false,
+  touching_left_wall: false,
+  touching_right_wall: false
 });
 
 // setting terrain
-var walls = [[300,400,100,100],[0,0,800,50],[200,200,50,50]]
+var walls = [
+  [0, 0, 800, 50],
+  [0, 590, 800, 10],
+  [0, 0, 10, 600],
+  [790, 0, 10, 600],
+
+  [100, 150, 100, 50],
+  [350, 150, 100, 50],
+  [600, 150, 100, 50],
+  [225, 300, 100, 50],
+  [475, 300, 100, 50]]
 
 function tick() {
   logic();
@@ -159,14 +175,34 @@ function tick() {
 
 function logic() {
   // move player
-  if (input_right) {p.motion.x += p.attribute.move_speed;}
-  if (input_left) {p.motion.x -= p.attribute.move_speed;}
-  if (input_up && on_ground) {p.motion.y += p.attribute.jump_power;}
-  if (input_down) {p.motion.y -= p.attribute.move_speed;}
-  
+  if (input_right) {
+    p.motion.x += p.attribute.move_speed;
+    //if (p.touching_right_wall) {p.motion.y *= p.attribute.wall_resistance;}
+  }
+  if (input_left) {
+    p.motion.x -= p.attribute.move_speed;
+    //if (p.touching_left_wall) {p.motion.y *= p.attribute.wall_resistance;}
+  }
+  if (input_up) {
+    if (p.on_ground) { p.motion.y += p.attribute.jump_power; }
+    /*else {
+      if (p.touching_left_wall) {
+        p.motion.y = p.attribute.jump_power * 1;
+        p.motion.x += p.attribute.jump_power * 1;
+        p.touching_left_wall = false;
+      }
+      if (p.touching_right_wall) {
+        p.motion.y = p.attribute.jump_power * 1;
+        p.motion.x -= p.attribute.jump_power * 1;
+        p.touching_right_wall = false;
+      }
+    }*/
+  }
+  if (input_down) { p.motion.y -= p.attribute.move_speed; }
+
   p.motion.x *= p.attribute.resistance;
   p.motion.y += GRAVITY * p.attribute.gravity_multiplier;
-  if (Math.abs(p.motion.x) < 0.1) {p.motion.x = 0}
+  if (Math.abs(p.motion.x) < 0.1) { p.motion.x = 0 }
   //if (Math.abs(p.motion.y) < 1) {p.motion.y = 0}
 
   move(4);
@@ -175,6 +211,8 @@ function logic() {
 function move(accuracy) {
   if (!is_colliding(p.pos.x + p.motion.x, p.pos.y)) {
     p.pos.x += p.motion.x;
+    p.touching_left_wall = false;
+    p.touching_right_wall = false;
   } else {
     let length = Math.floor(Math.abs(p.motion.x)) + 1;
     for (let i = 1; i <= length; i++) {
@@ -182,12 +220,14 @@ function move(accuracy) {
         if (is_colliding(p.pos.x - i, p.pos.y)) {
           p.pos.x -= i;
           p.pos.x++;
+          p.touching_left_wall = true;
           break;
         }
       } else {
         if (is_colliding(p.pos.x + i, p.pos.y)) {
           p.pos.x += i;
           p.pos.x--;
+          p.touching_right_wall = true;
           break;
         }
       }
@@ -196,7 +236,7 @@ function move(accuracy) {
   }
   if (!is_colliding(p.pos.x, p.pos.y + p.motion.y)) {
     p.pos.y += p.motion.y;
-    on_ground = false;
+    p.on_ground = false;
   } else {
     let length = Math.floor(Math.abs(p.motion.y)) + 1;
     for (let i = 1; i <= length; i++) {
@@ -215,29 +255,29 @@ function move(accuracy) {
       }
     }
     if (p.motion.y < 0) {
-      on_ground = true;
+      p.on_ground = true;
     }
     p.motion.y = 0;
   }
 }
 
-function intersect_rect(al,au,ar,ad,bl,bu,br,bd) {
-  return !(ar<bl||br<al||au<bd||bu<ad)
+function intersect_rect(al, au, ar, ad, bl, bu, br, bd) {
+  return !(ar < bl || br < al || au < bd || bu < ad)
 }
 
-function is_colliding(px,py) {
+function is_colliding(px, py) {
   let flag = false;
-  for (i = 0;i < walls.length; i++) {
+  for (i = 0; i < walls.length; i++) {
     if (intersect_rect(
-      px-p.size.x/2,
-      py+p.size.y,
-      px+p.size.x/2,
+      px - p.attribute.size.x / 2,
+      py + p.attribute.size.y,
+      px + p.attribute.size.x / 2,
       py,
       walls[i][0],
-      walls[i][1]+walls[i][3],
-      walls[i][0]+walls[i][2],
+      walls[i][1] + walls[i][3],
+      walls[i][0] + walls[i][2],
       walls[i][1],
-    )) {flag = true;break;}
+    )) { flag = true; break; }
   }
   return flag;
 }
@@ -245,18 +285,18 @@ function is_colliding(px,py) {
 function render() {
   // background
   ctx.fillStyle = "#adf";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-  
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
   // player
   ctx.fillStyle = "#334";
-  ctx.fillRect(p.pos.x - p.size.x / 2, p.pos.y, p.size.x, p.size.y);
+  ctx.fillRect(p.pos.x - p.attribute.size.x / 2, p.pos.y, p.attribute.size.x, p.attribute.size.y);
 
   // walls
-  for (i = 0;i < walls.length; i++) {
+  for (i = 0; i < walls.length; i++) {
     ctx.fillStyle = "#112";
-    ctx.fillRect(walls[i][0],walls[i][1],walls[i][2],walls[i][3]);
+    ctx.fillRect(walls[i][0], walls[i][1], walls[i][2], walls[i][3]);
   }
 }
 
 // tick
-setInterval(tick, 1000/60);
+setInterval(tick, 1000 / 60);
