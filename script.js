@@ -138,10 +138,12 @@ document.addEventListener('keyup', event => {
 const canvas = document.getElementById("game-canvas");
 const ctx = canvas.getContext("2d");
 
-// player
+// setting player
 var player_attribute = new EntityAttribute(5,1,0.6)
 var p = new Player(new Vector2(100,100), new Vector2(50,50), Vector2.zero, player_attribute);
 
+// setting terrain
+var walls = [[300,400,100,100]]
 
 function tick() {
   logic();
@@ -149,12 +151,47 @@ function tick() {
 }
 
 function logic() {
+  // move player
   if (input_right) {p.motion.x += p.attribute.move_speed;}
   if (input_left) {p.motion.x -= p.attribute.move_speed;}
   if (input_up) {p.motion.y += p.attribute.move_speed;}
   if (input_down) {p.motion.y -= p.attribute.move_speed;}
-  p.pos.add(p.motion);
+  
   p.motion.times(p.attribute.resistance);
+  if (Math.abs(p.motion.x) < 1) {p.motion.x = 0}
+  if (Math.abs(p.motion.y) < 1) {p.motion.y = 0}
+
+  move();
+}
+
+function move() {
+  if (is_colliding(p.pos.x + p.motion.x, p.pos.y)) {
+    //
+  } else {p.pos.x += p.motion.x;}
+  if (is_colliding(p.pos.x, p.pos.y + p.motion.y)) {
+    //
+  } else {p.pos.y += p.motion.y;}
+}
+
+function intersect_rect(al,au,ar,ad,bl,bu,br,bd) {
+  return !(ar<bl||br<al||au<bd||bu<ad)
+}
+
+function is_colliding(px,py) {
+  let flag = false;
+  for (i = 0;i < walls.length; i++) {
+    if (intersect_rect(
+      px-p.size.x/2,
+      py+p.size.y,
+      px+p.size.x/2,
+      py,
+      walls[i][0],
+      walls[i][1]+walls[i][3],
+      walls[i][0]+walls[i][2],
+      walls[i][1],
+    )) {flag = true;break;}
+  }
+  return flag;
 }
 
 function render() {
@@ -164,7 +201,13 @@ function render() {
   
   // player
   ctx.fillStyle = "#334";
-  ctx.fillRect(p.pos.x - p.size.x / 2, p.pos.y + p.size.y, p.size.x, p.size.y);
+  ctx.fillRect(p.pos.x - p.size.x / 2, p.pos.y, p.size.x, p.size.y);
+
+  // walls
+  for (i = 0;i < walls.length; i++) {
+    ctx.fillStyle = "#112";
+    ctx.fillRect(walls[i][0],walls[i][1],walls[i][2],walls[i][3]);
+  }
 }
 
 // tick
