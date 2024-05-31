@@ -86,16 +86,26 @@ class Vector2 {
   }
 }
 class Player {
-  constructor(pos = new Vector2.zero, size = new Vector2(10,10), motion = new Vector2.zero,attribute = new EntityAttribute()) {
+  constructor(
+    pos = new Vector2.zero,
+    size = new Vector2(10,10),
+    motion = new Vector2.zero,
+    attribute = new EntityAttribute()) {
     this.pos = pos;
     this.size = size;
     this.motion = motion;
+    this.attribute = attribute;
   }
 }
 class EntityAttribute {
-  constructor(move_speed = 1,gravity_multiplier = 1) {
-    this.move_speed = move_speed
-    this.gravity_multiplier = gravity_multiplier
+  constructor(
+    move_speed = 1.0,
+    gravity_multiplier = 1.0,
+    resistance = 0.9
+  ) {
+    this.move_speed = move_speed;
+    this.gravity_multiplier = gravity_multiplier;
+    this.resistance = resistance;
   }
 }
 // key input
@@ -129,8 +139,8 @@ const canvas = document.getElementById("game-canvas");
 const ctx = canvas.getContext("2d");
 
 // player
-var player_attribute = new EntityAttribute()
-var p = new Player(new Vector2(100,100), new Vector2(50,50), Vector2.zero);
+var player_attribute = new EntityAttribute(5,1,0.6)
+var p = new Player(new Vector2(100,100), new Vector2(50,50), Vector2.zero, player_attribute);
 
 
 function tick() {
@@ -139,9 +149,12 @@ function tick() {
 }
 
 function logic() {
-  if (input_right) {
-
-  }
+  if (input_right) {p.motion.x += p.attribute.move_speed;}
+  if (input_left) {p.motion.x -= p.attribute.move_speed;}
+  if (input_up) {p.motion.y += p.attribute.move_speed;}
+  if (input_down) {p.motion.y -= p.attribute.move_speed;}
+  p.pos.add(p.motion);
+  p.motion.times(p.attribute.resistance);
 }
 
 function render() {
@@ -155,4 +168,4 @@ function render() {
 }
 
 // tick
-setInterval(tick, 100);
+setInterval(tick, 1000/60);
