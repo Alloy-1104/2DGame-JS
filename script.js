@@ -85,6 +85,26 @@ class Vector2 {
     return new Vector2(0, -1);
   }
 }
+class Random {
+  constructor(seed = 88675123) {
+    this.x = 123456789;
+    this.y = 362436069;
+    this.z = 521288629;
+    this.w = seed;
+  }
+  
+  // XorShift
+  next() {
+    let t;
+    t = this.x ^ (this.x << 11);
+    this.x = this.y; this.y = this.z; this.z = this.w;
+    return this.w = (this.w ^ (this.w >>> 19)) ^ (t ^ (t >>> 8)); 
+  }
+  next_int(min = 0, max = 1) {
+    const r = Math.abs(this.next());
+    return min + (r % (max + 1 - min));
+  }
+}
 class Player {
   constructor(args) {
     this.pos = args["pos"];
@@ -157,16 +177,16 @@ var p = new Player({
 
 // setting terrain
 var walls = [
-  [0, 0, 800, 50],
-  [0, 590, 800, 10],
-  [0, 0, 10, 600],
-  [790, 0, 10, 600],
+  [0, 0, 800, 50,"grass"],
+  [0, 590, 800, 10,"dirt"],
+  [0, 0, 10, 600,"dirt"],
+  [790, 0, 10, 600,"dirt"],
 
-  [100, 150, 100, 50],
-  [350, 150, 100, 50],
-  [600, 150, 100, 50],
-  [225, 300, 100, 50],
-  [475, 300, 100, 50]]
+  [100, 150, 100, 50,"grass"],
+  [350, 150, 100, 50,"grass"],
+  [600, 150, 100, 50,"grass"],
+  [225, 300, 100, 50,"grass"],
+  [475, 300, 100, 50,"grass"]]
 
 function tick() {
   logic();
@@ -292,9 +312,45 @@ function render() {
   ctx.fillRect(p.pos.x - p.attribute.size.x / 2, p.pos.y, p.attribute.size.x, p.attribute.size.y);
 
   // walls
+  const r1 = new Random(100);
   for (i = 0; i < walls.length; i++) {
-    ctx.fillStyle = "#112";
-    ctx.fillRect(walls[i][0], walls[i][1], walls[i][2], walls[i][3]);
+    switch (walls[i][4]) {
+      case "grass":
+        ctx.fillStyle = "#66482b";
+        ctx.fillRect(walls[i][0], walls[i][1], walls[i][2], walls[i][3]);
+        ctx.fillStyle = "#3d944f";
+        
+        ctx.beginPath();
+        ctx.moveTo(walls[i][0] + walls[i][2], walls[i][1] + walls[i][3] - 20);
+        ctx.lineTo(walls[i][0] + walls[i][2], walls[i][1] + walls[i][3]);
+        ctx.lineTo(walls[i][0], walls[i][1] + walls[i][3]);
+        ctx.lineTo(walls[i][0], walls[i][1] + walls[i][3] - 20);
+        
+        for (let r = 0;r < walls[i][2];r+=0) {
+          r += r1.next_int(0,1000) / 1000 * 80;
+          if (walls[i][2] <= r) {r = walls[i][2]}
+          ctx.lineTo(walls[i][0] + r, walls[i][1] + walls[i][3] - 20 + r1.next_int(-1000,1000) / 1000 * 5);
+        }
+        ctx.fill();
+        ctx.fillStyle = "#49b861";
+        ctx.beginPath();
+        ctx.moveTo(walls[i][0] + walls[i][2], walls[i][1] + walls[i][3] - 10);
+        ctx.lineTo(walls[i][0] + walls[i][2], walls[i][1] + walls[i][3]);
+        ctx.lineTo(walls[i][0], walls[i][1] + walls[i][3]);
+        ctx.lineTo(walls[i][0], walls[i][1] + walls[i][3] - 10);
+        for (let r = 0;r < walls[i][2];r+=0) {
+          r += r1.next_int(0,1000) / 1000 * 80;
+          if (walls[i][2] <= r) {r = walls[i][2]}
+          ctx.lineTo(walls[i][0] + r, walls[i][1] + walls[i][3] - 10 + r1.next_int(-1000,1000) / 1000 * 5);
+        }
+        ctx.fill();
+        break;
+      case "dirt":
+        ctx.fillStyle = "#66482b";
+        ctx.fillRect(walls[i][0], walls[i][1], walls[i][2], walls[i][3]);
+        break;
+    }
+    
   }
 }
 
