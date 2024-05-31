@@ -86,31 +86,20 @@ class Vector2 {
   }
 }
 class Player {
-  constructor(
-    pos = new Vector2.zero,
-    size = new Vector2(10,10),
-    motion = new Vector2.zero,
-    attribute = new EntityAttribute(),
-    on_ground = false
-  ) {
-    this.pos = pos;
-    this.size = size;
-    this.motion = motion;
-    this.attribute = attribute;
-    this.on_ground = on_ground;
+  constructor(args) {
+    this.pos = args["pos"];
+    this.size = args["size"];
+    this.motion = args["motion"];
+    this.attribute = args["attribute"];
+    this.on_ground = args["on_ground"];
   }
 }
 class EntityAttribute {
-  constructor(
-    move_speed = 1.0,
-    gravity_multiplier = 1.0,
-    resistance = 0.9,
-    jump_power,
-  ) {
-    this.move_speed = move_speed;
-    this.gravity_multiplier = gravity_multiplier;
-    this.resistance = resistance;
-    this.jump_power = jump_power;
+  constructor(attribute) {
+    this.move_speed = attribute["move_speed"];
+    this.gravity_multiplier = attribute["gravity_multiplier"];
+    this.resistance = attribute["resistance"];
+    this.jump_power = attribute["jump_power"];
   }
 }
 // key input
@@ -139,15 +128,26 @@ document.addEventListener('keyup', event => {
 });
 
 // environment constant
-const GRAVITY = -1.5;
+const GRAVITY = -1;
 
 // setting canvas
 const canvas = document.getElementById("game-canvas");
 const ctx = canvas.getContext("2d");
 
 // setting player
-var player_attribute = new EntityAttribute(3,1,0.8,30);
-var p = new Player(new Vector2(100,100), new Vector2(50,50), Vector2.zero, player_attribute, false);
+var player_attribute = new EntityAttribute({
+  move_speed:1,
+  gravity_multiplier:1,
+  jump_power:20,
+  resistance:0.9
+  });
+var p = new Player({
+  pos: new Vector2(100,100),
+  size: new Vector2(50,50),
+  motion: Vector2.zero,
+  attribute: player_attribute,
+  on_ground: false
+});
 
 // setting terrain
 var walls = [[300,400,100,100],[0,0,800,50],[200,200,50,50]]
@@ -165,8 +165,8 @@ function logic() {
   if (input_down) {p.motion.y -= p.attribute.move_speed;}
   
   p.motion.x *= p.attribute.resistance;
-  p.motion.y += GRAVITY;
-  if (Math.abs(p.motion.x) < 1) {p.motion.x = 0}
+  p.motion.y += GRAVITY * p.attribute.gravity_multiplier;
+  if (Math.abs(p.motion.x) < 0.1) {p.motion.x = 0}
   //if (Math.abs(p.motion.y) < 1) {p.motion.y = 0}
 
   move(4);
@@ -176,12 +176,44 @@ function move(accuracy) {
   if (!is_colliding(p.pos.x + p.motion.x, p.pos.y)) {
     p.pos.x += p.motion.x;
   } else {
+    let length = Math.floor(Math.abs(p.motion.x)) + 1;
+    for (let i = 1; i <= length; i++) {
+      if (p.motion.x < 0) {
+        if (is_colliding(p.pos.x - i, p.pos.y)) {
+          p.pos.x -= i;
+          p.pos.x++;
+          break;
+        }
+      } else {
+        if (is_colliding(p.pos.x + i, p.pos.y)) {
+          p.pos.x += i;
+          p.pos.x--;
+          break;
+        }
+      }
+    }
     p.motion.x = 0;
   }
   if (!is_colliding(p.pos.x, p.pos.y + p.motion.y)) {
     p.pos.y += p.motion.y;
     on_ground = false;
   } else {
+    let length = Math.floor(Math.abs(p.motion.y)) + 1;
+    for (let i = 1; i <= length; i++) {
+      if (p.motion.y < 0) {
+        if (is_colliding(p.pos.x, p.pos.y - i)) {
+          p.pos.y -= i;
+          p.pos.y++;
+          break;
+        }
+      } else {
+        if (is_colliding(p.pos.x, p.pos.y + i)) {
+          p.pos.y += i;
+          p.pos.y--;
+          break;
+        }
+      }
+    }
     if (p.motion.y < 0) {
       on_ground = true;
     }
