@@ -110,9 +110,11 @@ class Camera {
   constructor(args) {
     this.pos = args["pos"];
     this.focus_object = args["focus_object"];
+    this.offset = args["offset"];
+    this.smoothness = args["smoothness"];
   }
-  smooth_focus(smooth) {
-    this.pos = Vector2.times(Vector2.add(this.focus_object.pos, Vector2.times(this.pos, smooth)), 1 / (smooth + 1));
+  smooth_focus() {
+    this.pos = Vector2.times(Vector2.add(this.focus_object.pos, Vector2.times(this.pos, this.smoothness)), 1 / (this.smoothness + 1));
   }
 }
 
@@ -190,7 +192,9 @@ const p = new Player({
 // setting camera
 const camera = new Camera({
   pos: new Vector2(0,0),
-  focus_object: p
+  focus_object: p,
+  offset: new Vector2(400,300),
+  smoothness: 5
 });
 
 // setting terrain
@@ -215,26 +219,12 @@ function logic() {
   // move player
   if (input_right) {
     p.motion.x += p.attribute.move_speed;
-    //if (p.touching_right_wall) {p.motion.y *= p.attribute.wall_resistance;}
   }
   if (input_left) {
     p.motion.x -= p.attribute.move_speed;
-    //if (p.touching_left_wall) {p.motion.y *= p.attribute.wall_resistance;}
   }
   if (input_up) {
     if (p.on_ground) { p.motion.y += p.attribute.jump_power; }
-    /*else {
-      if (p.touching_left_wall) {
-        p.motion.y = p.attribute.jump_power * 1;
-        p.motion.x += p.attribute.jump_power * 1;
-        p.touching_left_wall = false;
-      }
-      if (p.touching_right_wall) {
-        p.motion.y = p.attribute.jump_power * 1;
-        p.motion.x -= p.attribute.jump_power * 1;
-        p.touching_right_wall = false;
-      }
-    }*/
   }
   if (input_down) { p.motion.y -= p.attribute.move_speed; }
 
@@ -325,12 +315,13 @@ function render() {
   ctx.fillStyle = "#adf";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // camera
+  camera.smooth_focus();
+
   // player
-  ctx.fillStyle = "#334";
-  ctx.fillRect(p.pos.x - p.attribute.size.x / 2, p.pos.y, p.attribute.size.x, p.attribute.size.y);
+  render_rect([p.pos.x - p.attribute.size.x / 2, p.pos.y, p.attribute.size.x, p.attribute.size.y], "#334", camera);
 
   // walls
-  //const r1 = new Random(100);
   for (const wall_data of walls) {
     switch (wall_data[4]) {
       case "grass":
@@ -346,15 +337,9 @@ function render() {
   }
 }
 
-function render_rect_v(origin,size,color,camera_object) {
-  ctx.fillStyle = color;
-  ctx.fillRect(origin.x - camera_object.pos.x,origin.y - camera_object.pos.y, size.x, size.y);
-}
-
 function render_rect(rect_data,color,camera_object) {
-  console.log(rect_data);
   ctx.fillStyle = color;
-  ctx.fillRect(rect_data[0] - camera_object.pos.x, rect_data[1] - camera_object.pos.y, rect_data[2], rect_data[3]);
+  ctx.fillRect(rect_data[0] - camera_object.pos.x + camera_object.offset.x, rect_data[1] - camera_object.pos.y + camera_object.offset.y, rect_data[2], rect_data[3]);
 }
 
 // tick
