@@ -105,6 +105,17 @@ class Random {
     return min + (r % (max + 1 - min));
   }
 }
+
+class Camera {
+  constructor(args) {
+    this.pos = args["pos"];
+    this.focus_object = args["focus_object"];
+  }
+  smooth_focus(smooth) {
+    this.pos = Vector2.times(Vector2.add(this.focus_object.pos, Vector2.times(this.pos, smooth)), 1 / (smooth + 1));
+  }
+}
+
 class Player {
   constructor(args) {
     this.pos = args["pos"];
@@ -158,7 +169,7 @@ const canvas = document.getElementById("game-canvas");
 const ctx = canvas.getContext("2d");
 
 // setting player
-var player_attribute = new EntityAttribute({
+const player_attribute = new EntityAttribute({
   size: new Vector2(50, 50),
   move_speed: 1,
   gravity_multiplier: 1,
@@ -166,13 +177,20 @@ var player_attribute = new EntityAttribute({
   resistance: 0.9,
   wall_resistance: 0.6,
 });
-var p = new Player({
+
+const p = new Player({
   pos: new Vector2(100, 100),
   motion: Vector2.zero,
   attribute: player_attribute,
   on_ground: false,
   touching_left_wall: false,
   touching_right_wall: false
+});
+
+// setting camera
+const camera = new Camera({
+  pos: new Vector2(0,0),
+  focus_object: p
 });
 
 // setting terrain
@@ -312,46 +330,31 @@ function render() {
   ctx.fillRect(p.pos.x - p.attribute.size.x / 2, p.pos.y, p.attribute.size.x, p.attribute.size.y);
 
   // walls
-  const r1 = new Random(100);
-  for (i = 0; i < walls.length; i++) {
-    switch (walls[i][4]) {
+  //const r1 = new Random(100);
+  for (const wall_data of walls) {
+    switch (wall_data[4]) {
       case "grass":
-        ctx.fillStyle = "#66482b";
-        ctx.fillRect(walls[i][0], walls[i][1], walls[i][2], walls[i][3]);
-        ctx.fillStyle = "#3d944f";
-        
-        ctx.beginPath();
-        ctx.moveTo(walls[i][0] + walls[i][2], walls[i][1] + walls[i][3] - 20);
-        ctx.lineTo(walls[i][0] + walls[i][2], walls[i][1] + walls[i][3]);
-        ctx.lineTo(walls[i][0], walls[i][1] + walls[i][3]);
-        ctx.lineTo(walls[i][0], walls[i][1] + walls[i][3] - 20);
-        
-        for (let r = 0;r < walls[i][2];r+=0) {
-          r += r1.next_int(0,1000) / 1000 * 80;
-          if (walls[i][2] <= r) {r = walls[i][2]}
-          ctx.lineTo(walls[i][0] + r, walls[i][1] + walls[i][3] - 20 + r1.next_int(-1000,1000) / 1000 * 5);
-        }
-        ctx.fill();
-        ctx.fillStyle = "#49b861";
-        ctx.beginPath();
-        ctx.moveTo(walls[i][0] + walls[i][2], walls[i][1] + walls[i][3] - 10);
-        ctx.lineTo(walls[i][0] + walls[i][2], walls[i][1] + walls[i][3]);
-        ctx.lineTo(walls[i][0], walls[i][1] + walls[i][3]);
-        ctx.lineTo(walls[i][0], walls[i][1] + walls[i][3] - 10);
-        for (let r = 0;r < walls[i][2];r+=0) {
-          r += r1.next_int(0,1000) / 1000 * 80;
-          if (walls[i][2] <= r) {r = walls[i][2]}
-          ctx.lineTo(walls[i][0] + r, walls[i][1] + walls[i][3] - 10 + r1.next_int(-1000,1000) / 1000 * 5);
-        }
-        ctx.fill();
+        render_rect(wall_data,"#66482b",camera);
+        render_rect([wall_data[0], wall_data[1] + wall_data[3] - 20, wall_data[2], 20],"#3d944f", camera);
+        render_rect([wall_data[0], wall_data[1] + wall_data[3] - 10, wall_data[2], 10],"#49b861", camera);
         break;
       case "dirt":
-        ctx.fillStyle = "#66482b";
-        ctx.fillRect(walls[i][0], walls[i][1], walls[i][2], walls[i][3]);
+        render_rect(wall_data,"#66482b",camera);
         break;
     }
     
   }
+}
+
+function render_rect_v(origin,size,color,camera_object) {
+  ctx.fillStyle = color;
+  ctx.fillRect(origin.x - camera_object.pos.x,origin.y - camera_object.pos.y, size.x, size.y);
+}
+
+function render_rect(rect_data,color,camera_object) {
+  console.log(rect_data);
+  ctx.fillStyle = color;
+  ctx.fillRect(rect_data[0] - camera_object.pos.x, rect_data[1] - camera_object.pos.y, rect_data[2], rect_data[3]);
 }
 
 // tick
