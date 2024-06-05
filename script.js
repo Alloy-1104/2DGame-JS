@@ -123,9 +123,13 @@ class Player {
     this.pos = args["pos"];
     this.motion = args["motion"];
     this.attribute = args["attribute"];
-    this.on_ground = args["on_ground"];
     this.touching_wall = args["touching_wall"];
+    this.touching_wall_data = args["touching_wall_data"];
   }
+}
+
+function get_anim_delta(anim_func, f) {
+  return Vector2.sub(anim_func(f), anim_func(f - 1));
 }
 
 // key input
@@ -169,13 +173,14 @@ player_attribute = {
   resistance: 0.9,
   wall_resistance: 0.6,
 };
+var sinking_wall_data = []
 
 const p = new Player({
   pos: new Vector2(100, 100),
   motion: Vector2.zero,
   attribute: player_attribute,
-  on_ground: false,
-  touching_wall: { up: false, down: false, right: false, left: false }
+  touching_wall: { up: false, down: false, right: false, left: false },
+  touching_wall_data: { up: [], down: [], right: [], left: [] }
 });
 
 // setting camera
@@ -192,10 +197,11 @@ var walls = [
   { rect: [0, 590, 800, 10], material: "dirt" },
   { rect: [0, 0, 10, 600], material: "dirt" },
   { rect: [790, 0, 10, 600], material: "dirt" },
-  { rect: [100, 150, 100, 50], material: "grass" },
+  { rect: [100, 10, 100, 50], material: "grass", animation: f => { return new Vector2(Math.sin(f / 50) * 50 , 0)} },
   { rect: [350, 150, 100, 50], material: "grass" },
   { rect: [225, 300, 100, 50], material: "grass" },
-  { rect: [600, 200, 100, 50], material: "grass", animation: f => { return new Vector2(0, Math.sin(f / 50) * 50) } },
+  { rect: [600, 200, 100, 50], material: "grass", animation: f => { return new Vector2(0, Math.sin(f / 10) * 50) } },
+  { rect: [500, 200, 100, 50], material: "grass", animation: f => { return new Vector2(0, Math.sin((f + 10) / 50) * 50) } }
 ]
 
 
@@ -217,7 +223,7 @@ function logic() {
     p.motion.x -= p.attribute.move_speed;
   }
   if (input_up) {
-    if (p.on_ground) { p.motion.y += p.attribute.jump_power; }
+    if (p.touching_wall.down) { p.motion.y += p.attribute.jump_power; }
   }
   if (input_down) { p.motion.y -= p.attribute.move_speed; }
 
@@ -227,11 +233,60 @@ function logic() {
   if (Math.abs(p.motion.x) < 0.1) { p.motion.x = 0 }
   move();
 
-  // touching and sinking
-  if (is_colliding(p.pos.x, p.pos.y + 1)) { p.touching_wall.up = true; } else { p.touching_wall.up = false; }
-  if (is_colliding(p.pos.x, p.pos.y - 1)) { p.touching_wall.down = true; } else { p.touching_wall.down = false; }
-  if (is_colliding(p.pos.x + 1, p.pos.y)) { p.touching_wall.right = true; } else { p.touching_wall.right = false; }
-  if (is_colliding(p.pos.x - 1, p.pos.y)) { p.touching_wall.left = true; } else { p.touching_wall.left = false; }
+  // touching or sinking
+  if (is_colliding(p.pos.x, p.pos.y + 1)) { p.touching_wall.up = true; p.touching_wall_data.up = sinking_wall_data; } else { p.touching_wall.up = false; p.touching_wall_data.up = []; }
+  if (is_colliding(p.pos.x, p.pos.y - 1)) { p.touching_wall.down = true; p.touching_wall_data.down = sinking_wall_data; } else { p.touching_wall.down = false; p.touching_wall_data.down = []; }
+  if (is_colliding(p.pos.x + 1, p.pos.y)) { p.touching_wall.right = true; p.touching_wall_data.right = sinking_wall_data; } else { p.touching_wall.right = false; p.touching_wall_data.right = []; }
+  if (is_colliding(p.pos.x - 1, p.pos.y)) { p.touching_wall.left = true; p.touching_wall_data.left = sinking_wall_data; } else { p.touching_wall.left = false; p.touching_wall_data.left = []; }
+
+  // deal animating platforms
+  // up
+  
+  if (p.touching_wall.up) {
+    for (const wall_data of p.touching_wall_data.up) {
+      if (wall_data.animation) {
+        let anim_delta = get_anim_delta(wall_data.animation, game_frame)
+        if (anim_delta.y < 0) {
+          p.pos.y += anim_delta.y - 1;
+        }
+      }
+    }
+  }
+  // down
+  if (p.touching_wall.down) {
+    for (const wall_data of p.touching_wall_data.down) {
+      if (wall_data.animation) {
+        let anim_delta = get_anim_delta(wall_data.animation, game_frame)
+        if (0 < anim_delta.y) {
+          p.pos.y += anim_delta.y + 1;
+        }
+      }
+    }
+  }
+  // right
+  
+  if (p.touching_wall.right) {
+    for (const wall_data of p.touching_wall_data.right) {
+      if (wall_data.animation) {
+        let anim_delta = get_anim_delta(wall_data.animation, game_frame)
+        if (0 < anim_delta.x) {
+          p.pos.x += anim_delta.x + 1;
+        }
+      }
+    }
+  }
+  // left
+  if (p.touching_wall.left) {
+    for (const wall_data of p.touching_wall_data.left) {
+      if (wall_data.animation) {
+        let anim_delta = get_anim_delta(wall_data.animation, game_frame)
+        if (anim_delta.x < 0) {
+          p.pos.x += anim_delta.x - 1;
+        }
+      }
+    }
+  }
+  
 }
 
 function move() {
@@ -258,7 +313,6 @@ function move() {
   }
   if (!is_colliding(p.pos.x, p.pos.y + p.motion.y)) {
     p.pos.y += p.motion.y;
-    p.on_ground = false;
   } else {
     let length = Math.floor(Math.abs(p.motion.y)) + 1;
     for (let i = 1; i <= length; i++) {
@@ -276,9 +330,6 @@ function move() {
         }
       }
     }
-    if (p.motion.y < 0) {
-      p.on_ground = true;
-    }
     p.motion.y = 0;
   }
 }
@@ -287,19 +338,23 @@ function intersect_rect(al, au, ar, ad, bl, bu, br, bd) {
   return !(ar < bl || br < al || au < bd || bu < ad)
 }
 
+
 function is_colliding(px, py) {
   let flag = false;
-  for (i = 0; i < walls.length; i++) {
+  let animation_offset = Vector2.zero;
+  sinking_wall_data = []
+  for (const wall_data of walls) {
+    if (wall_data.animation) { animation_offset = wall_data.animation(game_frame); }
     if (intersect_rect(
       px - p.attribute.size.x / 2,
       py + p.attribute.size.y,
       px + p.attribute.size.x / 2,
       py,
-      walls[i].rect[0],
-      walls[i].rect[1] + walls[i].rect[3],
-      walls[i].rect[0] + walls[i].rect[2],
-      walls[i].rect[1],
-    )) { flag = true; break; }
+      wall_data.rect[0] + animation_offset.x,
+      wall_data.rect[1] + animation_offset.y + wall_data.rect[3],
+      wall_data.rect[0] + animation_offset.x + wall_data.rect[2],
+      wall_data.rect[1] + animation_offset.y,
+    )) { flag = true; sinking_wall_data.push(wall_data); }
   }
   return flag;
 }
@@ -311,9 +366,6 @@ function render() {
 
   // camera
   camera.smooth_focus();
-
-  // player
-  render_rect([p.pos.x - p.attribute.size.x / 2, p.pos.y, p.attribute.size.x, p.attribute.size.y], "#334", camera);
 
   // walls
   for (const wall_data of walls) {
@@ -333,6 +385,8 @@ function render() {
         break;
     }
 
+    // player
+    render_rect([p.pos.x - p.attribute.size.x / 2, p.pos.y, p.attribute.size.x, p.attribute.size.y], "#334", camera);
   }
 }
 
